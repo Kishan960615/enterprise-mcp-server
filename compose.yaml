@@ -1,0 +1,63 @@
+services:
+  mcp:
+    build: .
+    environment:
+      MCP_ENVIRONMENT: development
+      MCP_DATABASE_URL: postgresql+asyncpg://mcp:mcp@postgres:5432/mcp
+      MCP_REDIS_URL: redis://redis:6379/0
+      MCP_AUTH_MODE: development
+      MCP_FILE_ROOTS: '{"demo":"/app/demo-data/files"}'
+      MCP_REST_OPERATIONS: '{"demo_status":{"method":"GET","url":"http://mock-api:8080/status"}}'
+      MCP_KNOWLEDGE_BASE_URL: http://mock-api:8080
+    ports:
+      - "8013:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mock-api:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mcp
+      POSTGRES_USER: mcp
+      POSTGRES_PASSWORD: mcp
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcp"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  mock-api:
+    build: .
+    command: ["uvicorn", "enterprise_mcp.demo_api:app", "--host", "0.0.0.0", "--port", "8080"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/status')"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  postgres-data:
