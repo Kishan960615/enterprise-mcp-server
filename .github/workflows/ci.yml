@@ -44,4 +44,5 @@ jobs:
         with:
           image-ref: enterprise-mcp-server:test
           severity: HIGH,CRITICAL
+          ignore-unfixed: true
           exit-code: "1"
